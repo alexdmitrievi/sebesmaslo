@@ -8,6 +8,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Расчет себестоимости отработанного масла</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -165,6 +166,20 @@
 
             .form-input, .form-select {
                 font-size: 16px; /* Prevents zoom on iOS */
+            }
+
+            #historyChart {
+                height: 300px !important;
+            }
+
+            .card-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+
+            #historyMonthSelector {
+                width: 100% !important;
             }
         }
 
@@ -700,6 +715,25 @@
             </div>
         </div>
 
+        <!-- График истории -->
+        <div class="card" style="margin-bottom: 1.5rem;">
+            <div class="card-header">
+                <h2 class="card-title">📈 История средней себестоимости по месяцам</h2>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <label style="font-size: 0.9rem; color: var(--text-secondary);">Перейти к месяцу:</label>
+                    <select id="historyMonthSelector" class="form-select" style="width: auto; padding: 0.5rem; font-size: 0.9rem;">
+                        <option value="">Выберите месяц</option>
+                    </select>
+                </div>
+            </div>
+            <div style="position: relative; height: 400px; padding: 1rem;">
+                <canvas id="historyChart"></canvas>
+            </div>
+            <div id="noHistoryMessage" style="display: none; text-align: center; padding: 2rem; color: var(--text-secondary);">
+                <p>Недостаточно данных для построения графика. Добавьте расходы за несколько месяцев.</p>
+            </div>
+        </div>
+
         <!-- Таблица расходов -->
         <div class="card">
             <div class="card-header">
@@ -715,7 +749,7 @@
                             <th>Сумма</th>
                             <th>Форма оплаты</th>
                             <th>Описание</th>
-                            <th>Действия</th>
+                            <th style="width: 100px;">Удалить</th>
                         </tr>
                     </thead>
                     <tbody id="expensesBody">
@@ -755,9 +789,13 @@
         let expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
         let oilVolume = parseFloat(localStorage.getItem('oilVolume') || '0');
         let currentPeriod = localStorage.getItem('currentPeriod') || new Date().toISOString().slice(0, 7);
+        let monthlyVolumes = JSON.parse(localStorage.getItem('monthlyVolumes') || '{}');
+        let historyChart = null;
 
         // Инициализация
         document.getElementById('expenseDate').valueAsDate = new Date();
+        // Загружаем объем масла для текущего периода
+        oilVolume = monthlyVolumes[currentPeriod] || 0;
         document.getElementById('oilVolume').value = oilVolume;
         document.getElementById('periodInput').value = currentPeriod;
 
@@ -802,7 +840,34 @@
         document.getElementById('periodInput').addEventListener('change', function() {
             currentPeriod = this.value;
             localStorage.setItem('currentPeriod', currentPeriod);
+            
+            // Загружаем объем масла для выбранного периода
+            oilVolume = monthlyVolumes[currentPeriod] || 0;
+            document.getElementById('oilVolume').value = oilVolume;
+            localStorage.setItem('oilVolume', oilVolume);
+            
             updateDisplay();
+        });
+
+        // Обработчик выбора месяца из истории
+        document.getElementById('historyMonthSelector').addEventListener('change', function() {
+            if (this.value) {
+                currentPeriod = this.value;
+                localStorage.setItem('currentPeriod', currentPeriod);
+                
+                // Обновляем селектор периода вверху страницы
+                document.getElementById('periodInput').value = currentPeriod;
+                
+                // Загружаем объем масла для выбранного периода
+                oilVolume = monthlyVolumes[currentPeriod] || 0;
+                document.getElementById('oilVolume').value = oilVolume;
+                localStorage.setItem('oilVolume', oilVolume);
+                
+                updateDisplay();
+                
+                // Прокручиваем страницу наверх к форме
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
         });
 
         // Обработчик формы
@@ -849,6 +914,11 @@
         document.getElementById('oilVolume').addEventListener('input', function() {
             oilVolume = parseFloat(this.value) || 0;
             localStorage.setItem('oilVolume', oilVolume);
+            
+            // Сохраняем объем для текущего периода
+            monthlyVolumes[currentPeriod] = oilVolume;
+            localStorage.setItem('monthlyVolumes', JSON.stringify(monthlyVolumes));
+            
             updateDisplay();
         });
 
@@ -858,6 +928,186 @@
                 localStorage.setItem('expenses', JSON.stringify(expenses));
                 updateDisplay();
             }
+        }
+
+        function updateHistoryChart() {
+            // Собираем данные по всем месяцам
+            const monthlyData = {};
+            
+            // Группируем расходы по месяцам
+            expenses.forEach(expense => {
+                if (!monthlyData[expense.period]) {
+                    monthlyData[expense.period] = { expenses: 0, cash_withdrawal: 0 };
+                }
+                monthlyData[expense.period].expenses += expense.amount;
+                if (expense.type === 'cash_withdrawal') {
+                    monthlyData[expense.period].cash_withdrawal += expense.amount;
+                }
+            });
+
+            // Фильтруем только месяцы где есть и расходы и объем масла
+            const periods = Object.keys(monthlyData)
+                .filter(period => monthlyVolumes[period] && monthlyVolumes[period] > 0)
+                .sort();
+
+            // Заполняем селектор месяцев всегда
+            const monthSelector = document.getElementById('historyMonthSelector');
+            const monthNames = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+            
+            if (periods.length > 0) {
+                monthSelector.innerHTML = '<option value="">Выберите месяц</option>' + 
+                    periods.map(period => {
+                        const [year, month] = period.split('-');
+                        return `<option value="${period}">${monthNames[parseInt(month) - 1]} ${year}</option>`;
+                    }).join('');
+                monthSelector.disabled = false;
+            } else {
+                monthSelector.innerHTML = '<option value="">Нет данных за месяцы</option>';
+                monthSelector.disabled = true;
+            }
+
+            if (periods.length < 1) {
+                document.getElementById('historyChart').parentElement.style.display = 'none';
+                document.getElementById('noHistoryMessage').style.display = 'block';
+                return;
+            }
+
+            document.getElementById('historyChart').parentElement.style.display = 'block';
+            document.getElementById('noHistoryMessage').style.display = 'none';
+
+            // Рассчитываем себестоимость для каждого месяца
+            const costs = periods.map(period => {
+                const total = monthlyData[period].expenses;
+                const commission = monthlyData[period].cash_withdrawal;
+                const volume = monthlyVolumes[period];
+                return ((total - commission) / volume).toFixed(2);
+            });
+
+            // Форматируем метки (например "Янв 2024")
+            const labels = periods.map(period => {
+                const [year, month] = period.split('-');
+                const monthNamesShort = ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн', 'Июл', 'Авг', 'Сен', 'Окт', 'Ноя', 'Дек'];
+                return `${monthNamesShort[parseInt(month) - 1]} ${year}`;
+            });
+
+            // Уничтожаем старый график если есть
+            if (historyChart) {
+                historyChart.destroy();
+            }
+
+            // Создаем график
+            const ctx = document.getElementById('historyChart').getContext('2d');
+            historyChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Себестоимость (₽/литр)',
+                        data: costs,
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 6,
+                        pointHoverRadius: 8,
+                        pointBackgroundColor: '#10b981',
+                        pointBorderColor: '#fff',
+                        pointBorderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    onClick: (event, activeElements) => {
+                        if (activeElements.length > 0) {
+                            const index = activeElements[0].index;
+                            const selectedPeriod = periods[index];
+                            
+                            // Переключаемся на выбранный период
+                            currentPeriod = selectedPeriod;
+                            localStorage.setItem('currentPeriod', currentPeriod);
+                            document.getElementById('periodInput').value = currentPeriod;
+                            document.getElementById('historyMonthSelector').value = selectedPeriod;
+                            
+                            // Загружаем данные
+                            oilVolume = monthlyVolumes[currentPeriod] || 0;
+                            document.getElementById('oilVolume').value = oilVolume;
+                            localStorage.setItem('oilVolume', oilVolume);
+                            
+                            updateDisplay();
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                font: {
+                                    size: 14,
+                                    family: "'Inter', sans-serif",
+                                    weight: '600'
+                                },
+                                color: '#0f172a',
+                                padding: 15
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                            padding: 12,
+                            titleFont: {
+                                size: 14,
+                                family: "'Inter', sans-serif",
+                                weight: '600'
+                            },
+                            bodyFont: {
+                                size: 13,
+                                family: "'JetBrains Mono', monospace"
+                            },
+                            callbacks: {
+                                label: function(context) {
+                                    return 'Себестоимость: ' + context.parsed.y + ' ₽/литр';
+                                },
+                                afterLabel: function() {
+                                    return 'Кликните для перехода';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                font: {
+                                    family: "'JetBrains Mono', monospace",
+                                    size: 12
+                                },
+                                color: '#64748b',
+                                callback: function(value) {
+                                    return value + ' ₽';
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(226, 232, 240, 0.5)'
+                            }
+                        },
+                        x: {
+                            ticks: {
+                                font: {
+                                    family: "'Inter', sans-serif",
+                                    size: 12,
+                                    weight: '500'
+                                },
+                                color: '#64748b'
+                            },
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                }
+            });
         }
 
         function updateDisplay() {
@@ -931,6 +1181,9 @@
             } else {
                 document.getElementById('avgCostDisplay').innerHTML = '—';
             }
+
+            // Обновляем график истории
+            updateHistoryChart();
         }
 
         // Начальная загрузка
