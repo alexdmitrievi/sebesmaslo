@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+    <meta name="theme-color" content="#667eea">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Расчет себестоимости отработанного масла</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1e40af;
+            --success: #059669;
+            --danger: #dc2626;
+            --warning: #f59e0b;
+            --bg-main: #f8fafc;
+            --bg-card: #ffffff;
+            --text-primary: #0f172a;
+            --text-secondary: #64748b;
+            --border: #e2e8f0;
+            --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+            --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, system-ui, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem 1rem;
+            color: var(--text-primary);
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        @media (max-width: 1024px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem 0.5rem;
+            }
+
+            .header h1 {
+                font-size: 1.75rem;
+            }
+
+            .header p {
+                font-size: 0.95rem;
+            }
+
+            .period-selector {
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+
+            .period-selector label {
+                font-size: 0.9rem;
+            }
+
+            .card {
+                padding: 1rem;
+            }
+
+            .card-title {
+                font-size: 1.25rem;
+            }
+
+            .cost-highlight {
+                padding: 1.5rem;
+                border-radius: 16px;
+            }
+
+            .cost-highlight-label {
+                font-size: 0.85rem;
+                letter-spacing: 1px;
+            }
+
+            .cost-highlight-value {
+                font-size: 2.5rem;
+            }
+
+            .cost-highlight-unit {
+                font-size: 1.2rem;
+            }
+
+            .cost-highlight-description {
+                font-size: 0.85rem;
+            }
+
+            .stats {
+                grid-template-columns: 1fr;
+            }
+
+            .stat-value {
+                font-size: 1.5rem;
+            }
+
+            .summary-row {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.5rem;
+            }
+
+            .summary-value {
+                font-size: 1.1rem;
+            }
+
+            table {
+                font-size: 0.85rem;
+            }
+
+            th, td {
+                padding: 0.75rem 0.5rem;
+            }
+
+            .btn {
+                padding: 0.75rem 1rem;
+                font-size: 0.95rem;
+            }
+
+            .btn-danger {
+                padding: 0.4rem 0.6rem;
+                font-size: 0.8rem;
+            }
+
+            .form-input, .form-select {
+                font-size: 16px; /* Prevents zoom on iOS */
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 1.5rem;
+            }
+
+            .cost-highlight-value {
+                font-size: 2rem;
+            }
+
+            .cost-highlight-unit {
+                font-size: 1rem;
+            }
+
+            .table-wrapper {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            table {
+                min-width: 600px;
+            }
+
+            .badge {
+                font-size: 0.7rem;
+                padding: 0.2rem 0.5rem;
+            }
+        }
+
+        .card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .form-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .form-label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+        }
+
+        .form-input, .form-select {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-size: 1rem;
+            font-family: inherit;
+            transition: all 0.2s;
+            background: white;
+        }
+
+        .form-input:focus, .form-select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .form-input[type="number"] {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .btn {
+            padding: 0.875rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            width: 100%;
+            min-height: 44px; /* iOS recommended touch target */
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+            box-shadow: var(--shadow);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-danger {
+            background: var(--danger);
+            color: white;
+            padding: 0.5rem 0.75rem;
+            font-size: 0.875rem;
+            min-height: 36px;
+        }
+
+        .btn-danger:hover {
+            background: #b91c1c;
+        }
+
+        .btn-danger:active {
+            transform: scale(0.95);
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            margin-top: 1rem;
+            -webkit-overflow-scrolling: touch;
+            border-radius: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.95rem;
+            min-width: 100%;
+        }
+
+        th {
+            background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+            color: white;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+
+        td {
+            padding: 0.875rem 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        tr:hover {
+            background: #f8fafc;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .badge-cash {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .badge-non-cash {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .badge-mixed {
+            background: #e9d5ff;
+            color: #6b21a8;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 1.5rem;
+            border-radius: 12px;
+            color: white;
+        }
+
+        .stat-card.green {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        }
+
+        .stat-card.orange {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            opacity: 0.9;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .stat-unit {
+            font-size: 0.875rem;
+            opacity: 0.9;
+            margin-left: 0.25rem;
+        }
+
+        .summary-card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .summary-row:last-child {
+            border-bottom: none;
+        }
+
+        .summary-label {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .summary-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+
+        .summary-total {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1rem;
+            color: var(--text-secondary);
+        }
+
+        .empty-state svg {
+            width: 64px;
+            height: 64px;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        .period-selector {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            background: rgba(255,255,255,0.2);
+            padding: 0.5rem;
+            border-radius: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .period-selector input {
+            padding: 0.5rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            min-width: 150px;
+        }
+
+        .calculations {
+            background: #f8fafc;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-top: 1rem;
+        }
+
+        .calc-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            font-size: 0.9rem;
+        }
+
+        .calc-row.highlight {
+            font-weight: 600;
+            color: var(--primary);
+            font-size: 1rem;
+        }
+
+        .cost-highlight {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            border-radius: 20px;
+            padding: 2.5rem;
+            text-align: center;
+            color: white;
+            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+            margin-bottom: 2rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .cost-highlight::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: pulse 3s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+
+        .cost-highlight-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .cost-highlight-label {
+            font-size: 1.1rem;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            opacity: 0.95;
+            margin-bottom: 1rem;
+        }
+
+        .cost-highlight-value {
+            font-size: 4rem;
+            font-weight: 800;
+            font-family: 'JetBrains Mono', monospace;
+            line-height: 1;
+            text-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            margin-bottom: 0.5rem;
+        }
+
+        .cost-highlight-unit {
+            font-size: 1.5rem;
+            opacity: 0.9;
+            margin-left: 0.5rem;
+        }
+
+        .cost-highlight-description {
+            font-size: 0.95rem;
+            opacity: 0.9;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Расчет себестоимости отработанного масла</h1>
+            <div class="period-selector">
+                <label style="color: white; font-weight: 600;">Период:</label>
+                <input type="month" id="periodInput" class="form-input" style="width: auto;">
+            </div>
+        </div>
+
+        <div class="grid">
+            <!-- Форма добавления расхода -->
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">➕ Добавить расход</h2>
+                </div>
+                
+                <form id="expenseForm">
+                    <div class="form-group">
+                        <label class="form-label">Дата</label>
+                        <input type="date" id="expenseDate" class="form-input" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Тип расхода</label>
+                        <select id="expenseType" class="form-select" required>
+                            <option value="">Выберите тип расхода</option>
+                            <option value="salary">Зарплатный фонд</option>
+                            <option value="cash_withdrawal">Выдача наличных на закуп масла</option>
+                            <option value="fuel">Расходы на топливо</option>
+                            <option value="rent">Аренда земли</option>
+                            <option value="maintenance">Обслуживание спецтехники</option>
+                            <option value="household">Хозяйственные расходы</option>
+                            <option value="other">Прочие расходы</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Форма оплаты</label>
+                        <select id="paymentType" class="form-select" required>
+                            <option value="non-cash">Безналичная</option>
+                            <option value="cash">Наличная</option>
+                            <option value="mixed">Смешанная</option>
+                        </select>
+                    </div>
+
+                    <div id="cashWithdrawalFields" style="display: none;">
+                        <div class="form-group">
+                            <label class="form-label">Сумма наличных для выдачи (₽)</label>
+                            <input type="number" id="cashAmount" class="form-input" step="0.01" placeholder="80000.00">
+                        </div>
+                        <div class="calculations" id="commissionCalculation" style="display: none;">
+                            <div class="calc-row">
+                                <span>Выдано наличными:</span>
+                                <span id="cashGivenDisplay">0.00 ₽</span>
+                            </div>
+                            <div class="calc-row highlight">
+                                <span>Комиссия 15%:</span>
+                                <span id="commissionDisplay">0.00 ₽</span>
+                            </div>
+                            <div class="calc-row">
+                                <span>Снимается с р/с:</span>
+                                <span id="totalWithdrawalDisplay">0.00 ₽</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="normalAmountField">
+                        <label class="form-label">Сумма (₽)</label>
+                        <input type="number" id="expenseAmount" class="form-input" step="0.01" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Описание (опционально)</label>
+                        <input type="text" id="expenseDescription" class="form-input" placeholder="Комментарий к расходу">
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Добавить расход</button>
+                </form>
+
+                <!-- Поле для объема масла -->
+                <div class="form-group" style="margin-top: 2rem; padding-top: 2rem; border-top: 2px solid var(--border);">
+                    <label class="form-label">Объем собранного масла (литров)</label>
+                    <input type="number" id="oilVolume" class="form-input" step="0.01" value="0">
+                </div>
+            </div>
+
+            <!-- Сводка -->
+            <div>
+                <div class="summary-card">
+                    <div class="card-header" style="margin-bottom: 1rem;">
+                        <h2 class="card-title">💰 Сводка по расходам</h2>
+                    </div>
+
+                    <div id="summaryContent">
+                        <div class="summary-row">
+                            <span class="summary-label">Зарплатный фонд</span>
+                            <span class="summary-value" id="sum-salary">0.00 ₽</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="summary-label">Выдача наличных (комиссия 15%)</span>
+                            <span class="summary-value" id="sum-cash_withdrawal">0.00 ₽</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="summary-label">Расходы на топливо</span>
+                            <span class="summary-value" id="sum-fuel">0.00 ₽</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="summary-label">Аренда земли</span>
+                            <span class="summary-value" id="sum-rent">0.00 ₽</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="summary-label">Обслуживание спецтехники</span>
+                            <span class="summary-value" id="sum-maintenance">0.00 ₽</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="summary-label">Хозяйственные расходы</span>
+                            <span class="summary-value" id="sum-household">0.00 ₽</span>
+                        </div>
+                        <div class="summary-row">
+                            <span class="summary-label">Прочие расходы</span>
+                            <span class="summary-value" id="sum-other">0.00 ₽</span>
+                        </div>
+                        <div class="summary-row summary-total">
+                            <span class="summary-label">ИТОГО</span>
+                            <span class="summary-value" id="sum-total">0.00 ₽</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Себестоимость -->
+                <div class="stats">
+                    <div class="stat-card">
+                        <div class="stat-label">Объем собранного масла</div>
+                        <div class="stat-value" id="volumeDisplay">0<span class="stat-unit">л</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Блок средней себестоимости -->
+        <div class="cost-highlight">
+            <div class="cost-highlight-content">
+                <div class="cost-highlight-label">Средняя себестоимость отработанного масла</div>
+                <div class="cost-highlight-value" id="avgCostDisplay">
+                    0.00<span class="cost-highlight-unit">₽/литр</span>
+                </div>
+                <div class="cost-highlight-description">
+                    В безналичной форме (с учетом всех расходов)
+                </div>
+            </div>
+        </div>
+
+        <!-- Таблица расходов -->
+        <div class="card">
+            <div class="card-header">
+                <h2 class="card-title">📋 Список расходов</h2>
+            </div>
+
+            <div class="table-wrapper">
+                <table id="expensesTable">
+                    <thead>
+                        <tr>
+                            <th>Дата</th>
+                            <th>Тип расхода</th>
+                            <th>Сумма</th>
+                            <th>Форма оплаты</th>
+                            <th>Описание</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody id="expensesBody">
+                        <tr>
+                            <td colspan="6">
+                                <div class="empty-state">
+                                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    <p>Расходы еще не добавлены</p>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const expenseTypes = {
+            'salary': 'Зарплатный фонд',
+            'cash_withdrawal': 'Выдача наличных на закуп масла',
+            'fuel': 'Расходы на топливо',
+            'rent': 'Аренда земли',
+            'maintenance': 'Обслуживание спецтехники',
+            'household': 'Хозяйственные расходы',
+            'other': 'Прочие расходы'
+        };
+
+        const paymentTypes = {
+            'cash': 'Наличная',
+            'non-cash': 'Безналичная',
+            'mixed': 'Смешанная'
+        };
+
+        let expenses = JSON.parse(localStorage.getItem('expenses') || '[]');
+        let oilVolume = parseFloat(localStorage.getItem('oilVolume') || '0');
+        let currentPeriod = localStorage.getItem('currentPeriod') || new Date().toISOString().slice(0, 7);
+
+        // Инициализация
+        document.getElementById('expenseDate').valueAsDate = new Date();
+        document.getElementById('oilVolume').value = oilVolume;
+        document.getElementById('periodInput').value = currentPeriod;
+
+        // Обработчик типа расхода
+        document.getElementById('expenseType').addEventListener('change', function() {
+            const cashWithdrawalFields = document.getElementById('cashWithdrawalFields');
+            const normalAmountField = document.getElementById('normalAmountField');
+            
+            if (this.value === 'cash_withdrawal') {
+                cashWithdrawalFields.style.display = 'block';
+                normalAmountField.style.display = 'none';
+                document.getElementById('expenseAmount').required = false;
+            } else {
+                cashWithdrawalFields.style.display = 'none';
+                normalAmountField.style.display = 'block';
+                document.getElementById('expenseAmount').required = true;
+            }
+        });
+
+        // Расчет комиссии при выдаче наличных (15%)
+        function calculateCommission() {
+            const cashAmount = parseFloat(document.getElementById('cashAmount').value) || 0;
+            
+            if (cashAmount > 0) {
+                // Формула: для получения X наличными нужно снять X / 0.85
+                // Комиссия = (X / 0.85) - X = X * (1/0.85 - 1) = X * 0.176470588
+                const totalWithdrawal = cashAmount / 0.85;
+                const commission = totalWithdrawal - cashAmount;
+                
+                document.getElementById('commissionCalculation').style.display = 'block';
+                document.getElementById('cashGivenDisplay').textContent = cashAmount.toFixed(2) + ' ₽';
+                document.getElementById('commissionDisplay').textContent = commission.toFixed(2) + ' ₽';
+                document.getElementById('totalWithdrawalDisplay').textContent = totalWithdrawal.toFixed(2) + ' ₽';
+            } else {
+                document.getElementById('commissionCalculation').style.display = 'none';
+            }
+        }
+
+        document.getElementById('cashAmount').addEventListener('input', calculateCommission);
+
+        // Изменение периода
+        document.getElementById('periodInput').addEventListener('change', function() {
+            currentPeriod = this.value;
+            localStorage.setItem('currentPeriod', currentPeriod);
+            updateDisplay();
+        });
+
+        // Обработчик формы
+        document.getElementById('expenseForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            const type = document.getElementById('expenseType').value;
+            let amount;
+
+            if (type === 'cash_withdrawal') {
+                const cashAmount = parseFloat(document.getElementById('cashAmount').value) || 0;
+                // Комиссия 15%: для получения X наличными нужно снять X / 0.85
+                const totalWithdrawal = cashAmount / 0.85;
+                amount = totalWithdrawal - cashAmount; // Только комиссия
+            } else {
+                amount = parseFloat(document.getElementById('expenseAmount').value) || 0;
+            }
+
+            const expense = {
+                id: Date.now(),
+                date: document.getElementById('expenseDate').value,
+                type: type,
+                amount: amount,
+                paymentType: document.getElementById('paymentType').value,
+                description: document.getElementById('expenseDescription').value,
+                period: document.getElementById('expenseDate').value.slice(0, 7),
+                cashAmount: type === 'cash_withdrawal' ? parseFloat(document.getElementById('cashAmount').value) : null
+            };
+
+            expenses.push(expense);
+            localStorage.setItem('expenses', JSON.stringify(expenses));
+
+            // Очистка формы
+            document.getElementById('expenseForm').reset();
+            document.getElementById('expenseDate').valueAsDate = new Date();
+            document.getElementById('cashWithdrawalFields').style.display = 'none';
+            document.getElementById('normalAmountField').style.display = 'block';
+            document.getElementById('commissionCalculation').style.display = 'none';
+
+            updateDisplay();
+        });
+
+        // Обработчик объема масла
+        document.getElementById('oilVolume').addEventListener('input', function() {
+            oilVolume = parseFloat(this.value) || 0;
+            localStorage.setItem('oilVolume', oilVolume);
+            updateDisplay();
+        });
+
+        function deleteExpense(id) {
+            if (confirm('Удалить этот расход?')) {
+                expenses = expenses.filter(e => e.id !== id);
+                localStorage.setItem('expenses', JSON.stringify(expenses));
+                updateDisplay();
+            }
+        }
+
+        function updateDisplay() {
+            // Фильтр по периоду
+            const filteredExpenses = expenses.filter(e => e.period === currentPeriod);
+
+            // Обновление таблицы
+            const tbody = document.getElementById('expensesBody');
+            
+            if (filteredExpenses.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="6">
+                            <div class="empty-state">
+                                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                                <p>Расходы за выбранный период не найдены</p>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            } else {
+                tbody.innerHTML = filteredExpenses.map(expense => {
+                    let description = expense.description || '—';
+                    
+                    // Для выдачи наличных добавляем информацию о сумме
+                    if (expense.type === 'cash_withdrawal' && expense.cashAmount) {
+                        description = `Выдано: ${expense.cashAmount.toFixed(2)} ₽${expense.description ? ' | ' + expense.description : ''}`;
+                    }
+                    
+                    return `
+                        <tr>
+                            <td>${new Date(expense.date).toLocaleDateString('ru-RU')}</td>
+                            <td>${expenseTypes[expense.type]}</td>
+                            <td style="font-family: 'JetBrains Mono', monospace; font-weight: 600;">${expense.amount.toFixed(2)} ₽</td>
+                            <td><span class="badge badge-${expense.paymentType}">${paymentTypes[expense.paymentType]}</span></td>
+                            <td>${description}</td>
+                            <td>
+                                <button class="btn btn-danger" onclick="deleteExpense(${expense.id})">Удалить</button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            // Расчет сумм по типам
+            const sums = {};
+            Object.keys(expenseTypes).forEach(type => {
+                sums[type] = filteredExpenses
+                    .filter(e => e.type === type)
+                    .reduce((sum, e) => sum + e.amount, 0);
+                
+                const elem = document.getElementById(`sum-${type}`);
+                if (elem) {
+                    elem.textContent = sums[type].toFixed(2) + ' ₽';
+                }
+            });
+
+            // Итого
+            const total = Object.values(sums).reduce((sum, val) => sum + val, 0);
+            document.getElementById('sum-total').textContent = total.toFixed(2) + ' ₽';
+
+            // Себестоимость
+            document.getElementById('volumeDisplay').innerHTML = oilVolume.toFixed(2) + '<span class="stat-unit">л</span>';
+            
+            if (oilVolume > 0) {
+                const costNonCash = (total - sums.cash_withdrawal) / oilVolume;
+                
+                document.getElementById('avgCostDisplay').innerHTML = costNonCash.toFixed(2) + '<span class="cost-highlight-unit">₽/литр</span>';
+            } else {
+                document.getElementById('avgCostDisplay').innerHTML = '—';
+            }
+        }
+
+        // Начальная загрузка
+        updateDisplay();
+    </script>
+</body>
+</html>
